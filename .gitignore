@@ -3,3 +3,7 @@
 /station_day.csv
 /station_hour.csv
 /stations.csv
+__pycache__/
+*.py[cod]
+data/processed/
+models/
