@@ -2,6 +2,9 @@ import joblib
 import pandas as pd
 import mlflow
 import mlflow.sklearn
+import subprocess
+import yaml
+from pathlib import Path
 
 mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
@@ -67,6 +70,29 @@ def build_pipeline():
 
     return pipeline
 
+def get_git_commit():
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            text=True
+        ).strip()
+    except subprocess.CalledProcessError:
+        return "unknown"
+
+
+def get_dvc_data_hash():
+    dvc_file = Path("city_day.csv.dvc")
+
+    if not dvc_file.exists():
+        return "unknown"
+
+    try:
+        data = yaml.safe_load(dvc_file.read_text())
+
+        return data["outs"][0]["md5"]
+
+    except (KeyError, IndexError, TypeError, yaml.YAMLError):
+        return "unknown"
 
 def main():
     df = pd.read_csv(INPUT_FILE)
@@ -109,6 +135,11 @@ def main():
         mlflow.log_param("numeric_imputation", "median")
         mlflow.log_param("categorical_imputation", "most_frequent")
         mlflow.log_param("train_end", "2020-01-01")
+
+        # Log lineage
+
+        mlflow.set_tag("git_commit", get_git_commit())
+        mlflow.set_tag("dvc_data_hash", get_dvc_data_hash())
 
         # Log metrics
         mlflow.log_metric("accuracy", accuracy)
