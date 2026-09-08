@@ -1,5 +1,9 @@
 import joblib
 import pandas as pd
+import mlflow
+import mlflow.sklearn
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
 from sklearn.compose import ColumnTransformer
 from sklearn.impute import SimpleImputer
@@ -76,26 +80,74 @@ def main():
     X_test = test[NUMERIC_FEATURES + CATEGORICAL_FEATURES]
     y_test = test["target"]
 
-    pipeline = build_pipeline()
+    mlflow.set_experiment("AQI Forecasting")
 
-    print("Training model...")
-    pipeline.fit(X_train, y_train)
+    with mlflow.start_run(run_name="Logistic Regression - Scaled"):
 
-    predictions = pipeline.predict(X_test)
+        pipeline = build_pipeline()
 
-    accuracy = accuracy_score(y_test, predictions)
+        print("Training model...")
+        pipeline.fit(X_train, y_train)
 
-    print(f"\nAccuracy: {accuracy:.4f}")
+        predictions = pipeline.predict(X_test)
 
-    print("\nClassification report:")
-    print(classification_report(y_test, predictions))
+        accuracy = accuracy_score(y_test, predictions)
 
-    print("\nConfusion matrix:")
-    print(confusion_matrix(y_test, predictions))
+        report = classification_report(
+            y_test,
+            predictions,
+            output_dict=True
+        )
 
-    joblib.dump(pipeline, MODEL_FILE)
+        macro_f1 = report["macro avg"]["f1-score"]
+        weighted_f1 = report["weighted avg"]["f1-score"]
 
-    print(f"\nSaved model to: {MODEL_FILE}")
+        # Log parameters
+        mlflow.log_param("model", "LogisticRegression")
+        mlflow.log_param("coverage_threshold", 0.70)
+        mlflow.log_param("scaling", "StandardScaler")
+        mlflow.log_param("numeric_imputation", "median")
+        mlflow.log_param("categorical_imputation", "most_frequent")
+        mlflow.log_param("train_end", "2020-01-01")
+
+        # Log metrics
+        mlflow.log_metric("accuracy", accuracy)
+        mlflow.log_metric("macro_f1", macro_f1)
+        mlflow.log_metric("weighted_f1", weighted_f1)
+
+        # Log per-class F1
+        for class_name in [
+            "Good",
+            "Moderate",
+            "Poor",
+            "Satisfactory",
+            "Severe",
+            "Very Poor"
+        ]:
+            mlflow.log_metric(
+                f"f1_{class_name.lower().replace(' ', '_')}",
+                report[class_name]["f1-score"]
+            )
+
+        # Save model locally
+        joblib.dump(pipeline, MODEL_FILE)
+
+        # Log model to MLflow
+        mlflow.sklearn.log_model(
+            sk_model=pipeline,
+            name="logistic_baseline",
+            skops_trusted_types=["numpy.dtype"]
+        )
+
+        print(f"\nAccuracy: {accuracy:.4f}")
+
+        print("\nClassification report:")
+        print(classification_report(y_test, predictions))
+
+        print("\nConfusion matrix:")
+        print(confusion_matrix(y_test, predictions))
+
+        print(f"\nSaved model to: {MODEL_FILE}")
 
 
 if __name__ == "__main__":
