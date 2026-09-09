@@ -1,18 +1,21 @@
-import joblib
 import pandas as pd
+import mlflow
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
 
-MODEL_PATH = "models/logistic_baseline.joblib"
 
 model = None
+
+MODEL_URI = "models:/AQI_NextDay_Classifier@champion"
+
 
 def get_model():
     global model
 
     if model is None:
-        model = joblib.load(MODEL_PATH)
+        model = mlflow.sklearn.load_model(MODEL_URI)
 
     return model
 
