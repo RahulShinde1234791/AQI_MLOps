@@ -1,9 +1,15 @@
+import os
 import pandas as pd
 import mlflow
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-mlflow.set_tracking_uri("http://127.0.0.1:5000")
+MLFLOW_TRACKING_URI = os.getenv(
+    "MLFLOW_TRACKING_URI",
+    "http://127.0.0.1:5000"
+)
+
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
 
 
 model = None
