@@ -2,9 +2,11 @@ from fastapi.testclient import TestClient
 
 from src.api.app import app
 
-
+class FakeModel:
+    def predict(self, data):
+        return ["Moderate"]
+    
 client = TestClient(app)
-
 
 def valid_request():
     return {
@@ -30,7 +32,15 @@ def test_health_endpoint():
     assert response.json() == {"status": "healthy"}
 
 
-def test_prediction_endpoint():
+def test_prediction_endpoint(monkeypatch):
+    from src.api import app as app_module
+
+    monkeypatch.setattr(
+        app_module,
+        "model",
+        FakeModel()
+    )
+
     response = client.post(
         "/predict",
         json=valid_request()
@@ -40,16 +50,7 @@ def test_prediction_endpoint():
 
     result = response.json()
 
-    assert "predicted_aqi_bucket" in result
-
-    assert result["predicted_aqi_bucket"] in {
-        "Good",
-        "Satisfactory",
-        "Moderate",
-        "Poor",
-        "Very Poor",
-        "Severe"
-    }
+    assert result["predicted_aqi_bucket"] == "Moderate"
 
 
 def test_invalid_month_rejected():

@@ -6,7 +6,15 @@ from pydantic import BaseModel, Field
 
 MODEL_PATH = "models/logistic_baseline.joblib"
 
-model = joblib.load(MODEL_PATH)
+model = None
+
+def get_model():
+    global model
+
+    if model is None:
+        model = joblib.load(MODEL_PATH)
+
+    return model
 
 app = FastAPI(
     title="AQI Next-Day Prediction API",
@@ -59,7 +67,7 @@ def predict(request: PredictionRequest):
         "day_of_week": request.day_of_week,
     }])
 
-    prediction = model.predict(data)[0]
+    prediction = get_model().predict(data)[0]
 
     return {
         "predicted_aqi_bucket": prediction
