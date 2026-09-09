@@ -1,8 +1,13 @@
 import os
+from urllib import request
 import pandas as pd
 import mlflow
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+import logging
+
+from src.api.logging_config import configure_logging
+
 
 MLFLOW_TRACKING_URI = os.getenv(
     "MLFLOW_TRACKING_URI",
@@ -30,6 +35,9 @@ app = FastAPI(
     description="Predicts tomorrow's AQI category from today's air-quality data.",
     version="1.0.0",
 )
+
+configure_logging()
+logger = logging.getLogger("aqi_api")
 
 
 class PredictionRequest(BaseModel):
@@ -61,6 +69,13 @@ def health():
 
 @app.post("/predict")
 def predict(request: PredictionRequest):
+    logger.info(
+        "prediction_request city=%s month=%s day_of_week=%s",
+        request.City,
+        request.month,
+        request.day_of_week,
+    )
+
     data = pd.DataFrame([{
         "City": request.City,
         "PM2.5": request.PM_2_5,
@@ -76,7 +91,21 @@ def predict(request: PredictionRequest):
         "day_of_week": request.day_of_week,
     }])
 
-    prediction = get_model().predict(data)[0]
+    try:
+        prediction = get_model().predict(data)[0]
+
+    except Exception:
+        logger.exception(
+            "prediction_failed city=%s",
+            request.City,
+        )
+        raise
+
+    logger.info(
+        "prediction_result city=%s prediction=%s",
+        request.City,
+        prediction,
+    )
 
     return {
         "predicted_aqi_bucket": prediction
