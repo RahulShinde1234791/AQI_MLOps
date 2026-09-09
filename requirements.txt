@@ -4,3 +4,7 @@ pandas
 scikit-learn
 joblib
 pydantic
+mlflow
+pytest
+httpx
+pyyaml
