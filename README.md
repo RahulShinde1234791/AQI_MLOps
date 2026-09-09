@@ -36,3 +36,15 @@
 - Macro F1 improved from 0.58 to 0.66.
 - Good-class recall improved from 0.01 to 0.32.
 - The Logistic Regression convergence warning disappeared.
+
+### Registry-backed container inference
+
+The FastAPI inference service runs inside a Docker container and
+loads the model through the MLflow Model Registry using the
+`@champion` alias.
+
+Verified:
+- Docker container starts successfully.
+- `/health` returns HTTP 200.
+- `/predict` returns HTTP 200.
+- Model is loaded from `AQI_NextDay_Classifier@champion`.
