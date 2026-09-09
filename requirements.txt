@@ -8,3 +8,4 @@ mlflow
 pytest
 httpx
 pyyaml
+prometheus-client

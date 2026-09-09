@@ -4,6 +4,8 @@ import pandas as pd
 import mlflow
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
+from prometheus_client import Counter, Histogram, generate_latest
+from fastapi.responses import Response
 import logging
 
 from src.api.logging_config import configure_logging
@@ -38,6 +40,21 @@ app = FastAPI(
 
 configure_logging()
 logger = logging.getLogger("aqi_api")
+
+prediction_requests = Counter(
+    "prediction_requests_total",
+    "Total number of prediction requests"
+)
+
+prediction_errors = Counter(
+    "prediction_errors_total",
+    "Total number of prediction errors"
+)
+
+prediction_latency = Histogram(
+    "prediction_latency_seconds",
+    "Time spent generating predictions"
+)
 
 
 class PredictionRequest(BaseModel):
@@ -91,14 +108,22 @@ def predict(request: PredictionRequest):
         "day_of_week": request.day_of_week,
     }])
 
+    prediction_requests.inc()
+
     try:
-        prediction = get_model().predict(data)[0]
+        model_instance = get_model()
+
+        with prediction_latency.time():
+            prediction = model_instance.predict(data)[0]
 
     except Exception:
+        prediction_errors.inc()
+
         logger.exception(
             "prediction_failed city=%s",
             request.City,
         )
+
         raise
 
     logger.info(
@@ -110,3 +135,11 @@ def predict(request: PredictionRequest):
     return {
         "predicted_aqi_bucket": prediction
     }
+
+
+@app.get("/metrics")
+def metrics():
+    return Response(
+        content=generate_latest(),
+        media_type="text/plain"
+    )
